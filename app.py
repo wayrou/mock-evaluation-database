@@ -1,3 +1,4 @@
+import base64
 import html
 import sqlite3
 
@@ -14,7 +15,7 @@ alt.theme.enable("opaque")
 # ---------------------------------------------------------
 
 st.set_page_config(
-    page_title="TCP Client Data & Outcomes",
+    page_title="Polar",
     page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded",
@@ -275,6 +276,55 @@ st.markdown(
 
         .brand-lockup {
             padding: 0.2rem 0.1rem 0.8rem;
+            text-align: center;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stImage"] {
+            display: flex;
+            justify-content: center;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stImage"] img {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .polar-logo {
+            padding: 0.2rem 0 0.35rem;
+            text-align: center;
+        }
+
+        .polar-logo img {
+            display: inline-block;
+            width: 58px;
+            height: 58px;
+            object-fit: contain;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stExpander"] details > summary,
+        [data-testid="stSidebar"] [data-testid="stExpander"] details > summary p {
+            color: #18324A !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stExpander"] [role="radiogroup"] label,
+        [data-testid="stSidebar"] [data-testid="stExpander"] [role="radiogroup"] label p {
+            color: #18324A !important;
+        }
+
+        .brand-logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            margin-bottom: 10px;
+            border-radius: 13px;
+            background: rgba(255, 255, 255, 0.13);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #FFFFFF;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
         }
 
         .brand-mark {
@@ -610,31 +660,78 @@ client_labels = clients.set_index("client_id")["selector_label"].to_dict()
 # SIDEBAR
 # ---------------------------------------------------------
 
+def select_dashboard(folder_key):
+    for key in ("agency_dashboard", "client_dashboard", "caregiver_dashboard"):
+        if key != folder_key:
+            st.session_state[key] = None
+
+
+if "agency_dashboard" not in st.session_state:
+    st.session_state.agency_dashboard = "Agency Outcomes"
+
 with st.sidebar:
+    polar_logo = base64.b64encode(
+        open("assets/polar-logo.png", "rb").read()
+    ).decode("ascii")
+    st.markdown(
+        f'<div class="polar-logo"><img src="data:image/png;base64,{polar_logo}" alt="Polar logo"></div>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         """
         <div class="brand-lockup">
-            <div class="brand-mark">TCP</div>
-            <div class="brand-title">The Children's Place</div>
+            <div class="brand-title">Polar</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    view = st.radio(
-        "Dashboards",
-        [
-            "Agency Outcomes",
-            "Client Overview",
-            "Client Outcomes",
-        ],
-        index=0,
-        label_visibility="visible",
+    with st.expander("Agency", expanded=False):
+        st.radio(
+            "Agency dashboards",
+            ["Agency Outcomes", "Staff Outcomes"],
+            index=None,
+            key="agency_dashboard",
+            on_change=select_dashboard,
+            args=("agency_dashboard",),
+            label_visibility="collapsed",
+        )
+
+    with st.expander("Client", expanded=False):
+        st.radio(
+            "Client dashboards",
+            ["Client Overview", "Client Outcomes"],
+            index=None,
+            key="client_dashboard",
+            on_change=select_dashboard,
+            args=("client_dashboard",),
+            label_visibility="collapsed",
+        )
+
+    with st.expander("Caregiver", expanded=False):
+        st.radio(
+            "Caregiver dashboards",
+            ["Caregiver Outcomes"],
+            index=None,
+            key="caregiver_dashboard",
+            on_change=select_dashboard,
+            args=("caregiver_dashboard",),
+            label_visibility="collapsed",
+        )
+
+    view = next(
+        dashboard
+        for dashboard in (
+            st.session_state.get("agency_dashboard"),
+            st.session_state.get("client_dashboard"),
+            st.session_state.get("caregiver_dashboard"),
+        )
+        if dashboard is not None
     )
 
     st.divider()
 
-    if view == "Agency Outcomes":
+    if view in {"Agency Outcomes", "Staff Outcomes", "Caregiver Outcomes"}:
         selected_client_id = int(clients.iloc[0]["client_id"])
     else:
         selected_client_id = st.selectbox(
@@ -658,7 +755,7 @@ with st.sidebar:
 
 
 if selected_client_id is None:
-    st.title("The Children's Place")
+    st.title("The Children's Place" if view == "Agency Outcomes" else "Polar")
     st.info("Search for a client in the sidebar to view their record.")
     st.stop()
 
@@ -979,7 +1076,7 @@ def render_goal_card(goal):
 # HEADER
 # ---------------------------------------------------------
 
-st.title("The Children's Place")
+st.title("The Children's Place" if view == "Agency Outcomes" else "Polar")
 status = str(client["status"] or "Unknown")
 admission_date = str(client["admission_date"] or "—")
 
@@ -1415,6 +1512,22 @@ elif view == "Client Outcomes":
                     if direction == "higher"
                     else "Improvement direction: lower is better"
                 )
+
+
+# =========================================================
+# PLACEHOLDER OUTCOMES
+# =========================================================
+
+elif view in {"Staff Outcomes", "Caregiver Outcomes"}:
+    st.markdown(
+        f"""
+        <div class="agency-hero">
+            <div class="agency-hero-title">{view}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.info(f"{view} dashboards are coming soon.")
 
 
 # =========================================================
